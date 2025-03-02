@@ -14,21 +14,19 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value;
+          return request.headers.get(`cookie-${name}`);
         },
         set(name: string, value: string, options: any) {
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          response.headers.set(
+            "Set-Cookie",
+            `${name}=${value}; Path=/; HttpOnly; SameSite=Lax`
+          );
         },
         remove(name: string, options: any) {
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+          response.headers.set(
+            "Set-Cookie",
+            `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+          );
         },
       },
     }

@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -7,26 +6,34 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code");
 
   if (code) {
-    const cookieStore = cookies();
+    const response = NextResponse.redirect(requestUrl.origin);
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            return request.headers.get(`cookie-${name}`);
           },
           set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
+            response.headers.set(
+              "Set-Cookie",
+              `${name}=${value}; Path=/; HttpOnly; SameSite=Lax`
+            );
           },
           remove(name: string, options: any) {
-            cookieStore.set({ name, value: "", ...options });
+            response.headers.set(
+              "Set-Cookie",
+              `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+            );
           },
         },
       }
     );
 
     await supabase.auth.exchangeCodeForSession(code);
+    return response;
   }
 
   // URL to redirect to after sign in process completes
