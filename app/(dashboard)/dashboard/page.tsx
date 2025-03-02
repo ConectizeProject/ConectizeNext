@@ -1,27 +1,26 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { useSupabase } from "@/hooks/useSupabase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function Dashboard() {
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const { session, loading } = useSupabase();
 
   useEffect(() => {
-    const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/signin");
-      }
-    };
-    checkUser();
-  }, [router, supabase]);
+    if (!loading && !session) {
+      router.push("/signin");
+    }
+  }, [loading, session, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

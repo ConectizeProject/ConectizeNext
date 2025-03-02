@@ -1,19 +1,20 @@
-import { ThemeProvider } from "@/components/theme-provider"
-import { Inter } from "next/font/google"
-import { Toaster } from "sonner"
-import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider";
+import { Inter } from "next/font/google";
+import { Toaster } from "sonner";
+import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "ConectizeApp - Gerencie seus marketplaces em um só lugar",
-  description: "Administre pedidos, estoque, flex, full e relatórios comerciais de forma integrada.",
-}
+  description:
+    "Administre pedidos, estoque, flex, full e relatórios comerciais de forma integrada.",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -23,11 +24,12 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          storageKey="conectize-theme"
         >
           {children}
           <Toaster richColors />
         </ThemeProvider>
       </body>
     </html>
-  )
-} 
+  );
+}

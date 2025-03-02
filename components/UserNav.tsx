@@ -11,31 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createBrowserClient } from "@supabase/ssr";
+import { useSupabase } from "@/hooks/useSupabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 
 export function UserNav() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string>("");
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        setUserEmail(session.user.email);
-      }
-    };
-
-    getUser();
-  }, [supabase]);
+  const { supabase, session } = useSupabase();
+  const userEmail = session?.user?.email || "";
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

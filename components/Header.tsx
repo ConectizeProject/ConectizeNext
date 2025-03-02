@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 import { Button } from "./ui/button";
 
@@ -11,7 +12,8 @@ export function Header() {
         >
           ConectizeApp
         </Link>
-        <nav className="flex gap-4">
+        <nav className="flex items-center gap-4">
+          <ThemeToggle />
           <Link href="/signin">
             <Button variant="ghost">Entrar</Button>
           </Link>
