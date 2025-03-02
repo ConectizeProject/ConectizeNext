@@ -11,6 +11,7 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
@@ -26,9 +27,10 @@ function SignInForm() {
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -38,10 +40,16 @@ function SignInForm() {
         return;
       }
 
-      router.push(redirectTo);
-      router.refresh();
+      if (data.session) {
+        router.refresh();
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 100);
+      }
     } catch (error) {
       setError("Ocorreu um erro ao tentar fazer login.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -104,8 +112,8 @@ function SignInForm() {
             </Link>
           </div>
 
-          <Button type="submit" className="w-full">
-            Entrar
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
       </div>

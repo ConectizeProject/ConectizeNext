@@ -4,9 +4,10 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const next = requestUrl.searchParams.get("next") || "/dashboard";
 
   if (code) {
-    const response = NextResponse.redirect(requestUrl.origin);
+    const response = NextResponse.redirect(new URL(next, requestUrl.origin));
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,13 +18,13 @@ export async function GET(request: Request) {
             return request.headers.get(`cookie-${name}`);
           },
           set(name: string, value: string, options: any) {
-            response.headers.set(
+            response.headers.append(
               "Set-Cookie",
               `${name}=${value}; Path=/; HttpOnly; SameSite=Lax`
             );
           },
           remove(name: string, options: any) {
-            response.headers.set(
+            response.headers.append(
               "Set-Cookie",
               `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
             );
@@ -37,5 +38,5 @@ export async function GET(request: Request) {
   }
 
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin);
+  return NextResponse.redirect(new URL(next, requestUrl.origin));
 }

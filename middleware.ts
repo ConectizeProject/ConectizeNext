@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const requestUrl = new URL(request.url);
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -14,19 +16,33 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.headers.get(`cookie-${name}`);
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          response.headers.set(
-            "Set-Cookie",
-            `${name}=${value}; Path=/; HttpOnly; SameSite=Lax`
-          );
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          });
         },
         remove(name: string, options: any) {
-          response.headers.set(
-            "Set-Cookie",
-            `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
-          );
+          request.cookies.delete(name);
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.delete(name);
         },
       },
     }
@@ -38,7 +54,7 @@ export async function middleware(request: NextRequest) {
 
   // Se o usuário não estiver autenticado e tentar acessar o dashboard, redireciona para o login
   if (!session && request.nextUrl.pathname.startsWith("/dashboard")) {
-    const redirectUrl = new URL("/signin", request.url);
+    const redirectUrl = new URL("/signin", requestUrl.origin);
     redirectUrl.searchParams.set(
       "error",
       "Você precisa estar logado para acessar esta página"
@@ -53,7 +69,7 @@ export async function middleware(request: NextRequest) {
     (request.nextUrl.pathname.startsWith("/signin") ||
       request.nextUrl.pathname.startsWith("/signup"))
   ) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
   }
 
   return response;
