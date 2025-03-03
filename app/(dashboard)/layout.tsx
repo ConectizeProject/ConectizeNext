@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserNav } from "@/components/UserNav";
@@ -32,13 +33,14 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 pl-56 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
             <span className="font-bold">ConectizeApp</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
             <ThemeToggle />
+            <NotificationDropdown />
             <UserNav />
           </div>
         </div>
@@ -46,7 +48,7 @@ export default function DashboardLayout({
       <div className="flex">
         <Sidebar />
         <main className="flex-1 pl-56 pt-4">
-          <div className="container">{children}</div>
+          <div className="container py-10">{children}</div>
         </main>
       </div>
     </div>
