@@ -5,14 +5,32 @@ import { FormInput } from "@/components/ui/form-input";
 import { signInWithGoogle } from "@/utils/auth-helpers/client";
 import { translateSupabaseError } from "@/utils/supabase-errors";
 import { createBrowserClient } from "@supabase/ssr";
+import { Form, Formik, FormikHelpers } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import * as Yup from "yup";
+
+// Schema de validação com Yup
+const SignUpSchema = Yup.object().shape({
+  email: Yup.string().email("Email inválido").required("Email é obrigatório"),
+  password: Yup.string()
+    .required("Senha é obrigatória")
+    .min(8, "Senha deve ter pelo menos 8 caracteres")
+    .matches(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      "Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número"
+    ),
+});
+
+// Interface para os valores do formulário
+interface SignUpValues {
+  email: string;
+  password: string;
+}
 
 export default function SignUp() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -21,15 +39,23 @@ export default function SignUp() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  // Valores iniciais do formulário
+  const initialValues: SignUpValues = {
+    email: "",
+    password: "",
+  };
+
+  const handleSignUp = async (
+    values: SignUpValues,
+    { setSubmitting }: FormikHelpers<SignUpValues>
+  ) => {
     setError(null);
     setIsLoading(true);
 
     try {
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: values.email,
+        password: values.password,
         options: {
           emailRedirectTo: `${location.origin}/auth/callback`,
         },
@@ -40,17 +66,15 @@ export default function SignUp() {
         return;
       }
 
-      toast.success(
-        "Cadastro realizado com sucesso! Por favor, verifique seu email para confirmar sua conta.",
-        {
-          duration: 6000,
-        }
-      );
+      toast.success("Cadastro realizado com sucesso!", {
+        duration: 6000,
+      });
       router.push("/signin");
     } catch (error) {
       setError("Ocorreu um erro ao tentar criar sua conta.");
     } finally {
       setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -85,29 +109,60 @@ export default function SignUp() {
             </div>
           )}
 
-          <form onSubmit={handleSignUp} className="space-y-4">
-            <FormInput
-              id="email"
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <Formik
+            initialValues={initialValues}
+            validationSchema={SignUpSchema}
+            onSubmit={handleSignUp}
+          >
+            {({
+              values,
+              errors,
+              touched,
+              handleChange,
+              handleBlur,
+              isSubmitting,
+            }) => (
+              <Form className="space-y-4">
+                <FormInput
+                  id="email"
+                  name="email"
+                  type="email"
+                  label="Email"
+                  value={values.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={
+                    touched.email && errors.email ? errors.email : undefined
+                  }
+                  required
+                />
 
-            <FormInput
-              id="password"
-              type="password"
-              label="Senha"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+                <FormInput
+                  id="password"
+                  name="password"
+                  type="password"
+                  label="Senha"
+                  value={values.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={
+                    touched.password && errors.password
+                      ? errors.password
+                      : undefined
+                  }
+                  required
+                />
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Criando conta..." : "Criar conta"}
-            </Button>
-          </form>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || isSubmitting}
+                >
+                  {isLoading ? "Criando conta..." : "Criar conta"}
+                </Button>
+              </Form>
+            )}
+          </Formik>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

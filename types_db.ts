@@ -101,6 +101,36 @@ export type Database = {
         }
         Relationships: []
       }
+      roadmap_columns: {
+        Row: {
+          created_at: string | null
+          id: string
+          position: number
+          status: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          position: number
+          status: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          position?: number
+          status?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at: string | null
@@ -163,27 +193,72 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: Database["public"]["Enums"]["task_priority"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
           billing_address: Json | null
+          company_name: string | null
+          created_at: string
           full_name: string | null
           id: string
           payment_method: Json | null
+          updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           billing_address?: Json | null
+          company_name?: string | null
+          created_at?: string
           full_name?: string | null
           id: string
           payment_method?: Json | null
+          updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           billing_address?: Json | null
+          company_name?: string | null
+          created_at?: string
           full_name?: string | null
           id?: string
           payment_method?: Json | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -206,6 +281,8 @@ export type Database = {
         | "past_due"
         | "unpaid"
         | "paused"
+      task_priority: "low" | "medium" | "high"
+      task_status: "backlog" | "todo" | "in_progress" | "in_review" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -309,3 +386,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+

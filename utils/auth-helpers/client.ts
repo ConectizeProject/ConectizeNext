@@ -2,7 +2,9 @@
 
 import { getURL } from "@/utils/helpers";
 import { createClient } from "@/utils/supabase/client";
+import { User } from '@supabase/supabase-js';
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { useEffect, useState } from "react";
 import { redirectToPath } from "./server";
 
 export type AuthError = {
@@ -148,4 +150,28 @@ export async function signInWithEmailAndPassword(
       success: false,
     };
   }
+}
+
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function getUser() {
+      try {
+        setIsLoading(true);
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        setUser(data.user);
+      } catch (error) {
+        console.error('Erro ao obter usuário:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    getUser();
+  }, []);
+
+  return { user, isLoading };
 }

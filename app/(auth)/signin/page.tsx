@@ -2,24 +2,40 @@
 
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/ui/form-input";
-import {
-  signInWithEmailAndPassword,
-  signInWithGoogle,
-  signInWithMagicLink,
-} from "@/utils/auth-helpers/client";
 import { translateSupabaseError } from "@/utils/supabase-errors";
+import { createClient } from "@/utils/supabase/client";
+import { Form, Formik, FormikHelpers } from "formik";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import * as Yup from "yup";
+
+// Schema de validação com Yup
+const SignInSchema = Yup.object().shape({
+  email: Yup.string().email("Email inválido").required("Email é obrigatório"),
+  password: Yup.string()
+    .required("Senha é obrigatória")
+    .min(6, "Senha deve ter pelo menos 6 caracteres"),
+});
+
+// Interface para os valores do formulário
+interface SignInValues {
+  email: string;
+  password: string;
+}
 
 function SignInForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+
+  // Valores iniciais do formulário
+  const initialValues: SignInValues = {
+    email: "",
+    password: "",
+  };
 
   useEffect(() => {
     const errorMessage = searchParams.get("error");
@@ -28,31 +44,33 @@ function SignInForm() {
     }
   }, [searchParams]);
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSignIn = async (
+    values: SignInValues,
+    { setSubmitting }: FormikHelpers<SignInValues>
+  ) => {
     setIsLoading(true);
 
     try {
-      const { error, success } = await signInWithEmailAndPassword(
-        email,
-        password
-      );
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
 
       if (error) {
         toast.error(translateSupabaseError(error.code || ""));
         return;
       }
 
-      if (success) {
-        router.refresh();
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 100);
-      }
+      router.refresh();
+      setTimeout(() => {
+        router.push(redirectTo);
+      }, 100);
     } catch (error) {
       toast.error("Ocorreu um erro ao tentar fazer login.");
     } finally {
       setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -60,7 +78,13 @@ function SignInForm() {
     setIsLoading(true);
 
     try {
-      const { error } = await signInWithGoogle();
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
       if (error) {
         toast.error(translateSupabaseError(error.code || ""));
@@ -72,8 +96,7 @@ function SignInForm() {
     }
   };
 
-  const handleMagicLinkSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleMagicLinkSignIn = async (email: string) => {
     if (!email) {
       toast.error("Por favor, insira seu email");
       return;
@@ -82,16 +105,20 @@ function SignInForm() {
     setIsLoading(true);
 
     try {
-      const { error, success, message } = await signInWithMagicLink(email);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
       if (error) {
         toast.error(translateSupabaseError(error.code || ""));
         return;
       }
 
-      if (success) {
-        toast.success(message || "Link de acesso enviado para seu email");
-      }
+      toast.success("Link de acesso enviado para seu email");
     } catch (error) {
       toast.error("Ocorreu um erro ao tentar enviar o link de acesso.");
     } finally {
@@ -107,38 +134,69 @@ function SignInForm() {
         </div>
 
         <div className="mt-8 space-y-6">
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <FormInput
-              id="email"
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <Formik
+            initialValues={initialValues}
+            validationSchema={SignInSchema}
+            onSubmit={handleSignIn}
+          >
+            {({
+              values,
+              errors,
+              touched,
+              handleChange,
+              handleBlur,
+              isSubmitting,
+            }) => (
+              <Form className="space-y-4">
+                <FormInput
+                  id="email"
+                  name="email"
+                  type="email"
+                  label="Email"
+                  value={values.email}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={
+                    touched.email && errors.email ? errors.email : undefined
+                  }
+                  required
+                />
 
-            <FormInput
-              id="password"
-              type="password"
-              label="Senha"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+                <FormInput
+                  id="password"
+                  name="password"
+                  type="password"
+                  label="Senha"
+                  value={values.password}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={
+                    touched.password && errors.password
+                      ? errors.password
+                      : undefined
+                  }
+                  required
+                />
 
-            <div className="flex items-center justify-between">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueceu sua senha?
-              </Link>
-            </div>
+                <div className="flex items-center justify-between">
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Esqueceu sua senha?
+                  </Link>
+                </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar com Email"}
-            </Button>
-          </form>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || isSubmitting}
+                >
+                  {isLoading ? "Entrando..." : "Entrar com Email"}
+                </Button>
+              </Form>
+            )}
+          </Formik>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -180,29 +238,36 @@ function SignInForm() {
               Entrar com Google
             </Button>
 
-            <form onSubmit={handleMagicLinkSignIn}>
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full"
-                disabled={isLoading || !email}
-              >
-                <svg
-                  className="mr-2 h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                Entrar com Link Mágico
-              </Button>
-            </form>
+            <Formik
+              initialValues={{ email: "" }}
+              onSubmit={(values) => handleMagicLinkSignIn(values.email)}
+            >
+              {({ values }) => (
+                <Form>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isLoading || !values.email}
+                  >
+                    <svg
+                      className="mr-2 h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Entrar com Link Mágico
+                  </Button>
+                </Form>
+              )}
+            </Formik>
           </div>
 
           <div className="text-center text-sm">
