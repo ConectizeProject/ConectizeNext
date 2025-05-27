@@ -1,10 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -16,6 +13,9 @@ export async function PUT(
     const body = await request.json()
     const { razao_social, nome_fantasia, cnpj, inscricao_estadual, is_optante, inscricao_municipal } = body
 
+    // Recupera o id da URL
+    const id = request.nextUrl.pathname.split('/').pop()
+
     const { data: company, error } = await supabase
       .from('companies')
       .update({
@@ -26,7 +26,7 @@ export async function PUT(
         is_optante,
         inscricao_municipal,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single()
@@ -43,10 +43,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -55,10 +52,13 @@ export async function DELETE(
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    // Recupera o id da URL
+    const id = request.nextUrl.pathname.split('/').pop()
+
     const { data: company, error } = await supabase
       .from('companies')
       .update({ enabled: false })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id)
       .select()
       .single()
