@@ -1,39 +1,28 @@
-"use client";
+"use server";
 
 import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { UserNav } from "@/components/UserNav";
-import { useSupabase } from "@/hooks/useSupabase";
+import { createClient } from "@/lib/supabase/server";
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { redirect } from "next/navigation";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const { session, loading } = useSupabase();
+  const supabase = await createClient();
 
-  useEffect(() => {
-    if (!loading && !session) {
-      router.push("/signin");
-    }
-  }, [loading, session, router]);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    );
+  if (!session) {
+    redirect("/");
   }
 
   return (

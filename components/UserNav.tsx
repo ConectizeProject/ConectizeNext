@@ -15,6 +15,7 @@ import { useSupabase } from "@/hooks/useSupabase";
 import { Cog, LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export function UserNav() {
   const router = useRouter();
@@ -43,10 +44,26 @@ export function UserNav() {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
-      router.push("/signin");
+      // Limpa o estado local primeiro
+      setEmail("");
+      setInitials("");
+
+      // Faz o logout
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Limpa os cookies manualmente
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // Força um refresh da página
+      window.location.href = "/";
     } catch (error) {
       console.error("Erro ao sair:", error);
+      toast.error("Erro ao fazer logout");
     }
   };
 

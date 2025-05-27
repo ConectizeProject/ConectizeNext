@@ -69,7 +69,7 @@ export default function SignUp() {
       toast.success("Cadastro realizado com sucesso!", {
         duration: 6000,
       });
-      router.push("/signin");
+      router.push("/login");
     } catch (error) {
       setError("Ocorreu um erro ao tentar criar sua conta.");
     } finally {
@@ -206,7 +206,7 @@ export default function SignUp() {
           <div className="text-center text-sm">
             <span className="text-muted-foreground">
               Já tem uma conta?{" "}
-              <Link href="/signin" className="text-primary hover:underline">
+              <Link href="/login" className="text-primary hover:underline">
                 Fazer login
               </Link>
             </span>

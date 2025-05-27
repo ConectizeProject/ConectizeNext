@@ -3,29 +3,22 @@
  */
 
 // URL base para autenticação com o Mercado Livre (AUTH URL)
-const MELI_AUTH_URL = "https://auth.mercadolivre.com.br/authorization";
-// URL base para API do Mercado Livre (diferente da URL de autenticação)
-const MELI_API_URL = "https://api.mercadolibre.com";
+const MELI_API_AUTH_URL = "https://auth.mercadolivre.com.br";
+const MELI_API_URL = "https://auth.mercadolivre.com.br";
 
 // Parâmetros para a autenticação
 const MELI_CLIENT_ID = process.env.NEXT_PUBLIC_MELI_CLIENT_ID;
 const MELI_REDIRECT_URI = process.env.NEXT_PUBLIC_MELI_REDIRECT_URI;
+const MELI_NOTIFICATION_URI = process.env.NEXT_PUBLIC_MELI_NOTIFICATION_URI;
+const MELI_SECRET = process.env.MELI_SECRET;
 
 /**
  * Gera a URL de autorização do Mercado Livre
+ * @param companyId ID da empresa para vincular a integração
  * @returns URL de autorização completa para o fluxo OAuth
  */
-export function getAuthorizationUrl(): string {
-  // Verificar se as variáveis de ambiente estão definidas
-  if (!MELI_CLIENT_ID || !MELI_REDIRECT_URI) {
-    throw new Error(
-      "Variáveis de ambiente MELI_CLIENT_ID e MELI_REDIRECT_URI são obrigatórias"
-    );
-  }
-
-  // Gerar URL de autorização exatamente conforme o formato requerido
-  // Isso redireciona para a página de autorização do Mercado Livre (AUTH_URL)
-  const authUrl = `${MELI_AUTH_URL}?response_type=code&client_id=${MELI_CLIENT_ID}&redirect_uri=${MELI_REDIRECT_URI}&state=$12345`;
+export function getAuthorizationUrl(companyId?: string): string {
+  const authUrl = `${MELI_API_AUTH_URL}/authorization?response_type=code&client_id=${MELI_CLIENT_ID}&redirect_uri=${MELI_REDIRECT_URI}${companyId ? `&state=${companyId}` : ""}`;
 
   console.log("URL de autorização gerada:", authUrl);
 
@@ -47,25 +40,26 @@ export async function getAccessToken(code: string): Promise<{
 }> {
   try {
     // Verificar se as variáveis de ambiente estão definidas
-    if (!MELI_CLIENT_ID || !MELI_REDIRECT_URI) {
+    if (!MELI_CLIENT_ID || !MELI_REDIRECT_URI || !MELI_SECRET) {
       throw new Error(
-        "Variáveis de ambiente MELI_CLIENT_ID e MELI_REDIRECT_URI são obrigatórias"
+        'Variáveis de ambiente MELI_CLIENT_ID, MELI_REDIRECT_URI e MELI_SECRET são obrigatórias'
       );
     }
 
     // Realizar requisição para obter o token
     const response = await fetch(`${MELI_API_URL}/oauth/token`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json'
       },
-      body: JSON.stringify({
-        grant_type: "authorization_code",
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
         client_id: MELI_CLIENT_ID,
-        redirect_uri: MELI_REDIRECT_URI,
+        client_secret: MELI_SECRET,
         code,
-      }),
+        redirect_uri: MELI_REDIRECT_URI
+      })
     });
 
     // Verificar se a requisição foi bem-sucedida

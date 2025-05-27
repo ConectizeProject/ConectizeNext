@@ -115,7 +115,7 @@ export default function ForgotPassword() {
 
               <div className="flex items-center justify-between">
                 <Link
-                  href="/signin"
+                  href="/login"
                   className="text-sm text-primary hover:underline"
                 >
                   Voltar para o login
