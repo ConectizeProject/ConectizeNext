@@ -10,7 +10,12 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { RoadmapColumn } from "./RoadmapColumn";
-import { RoadmapColumn as RoadmapColumnType, Task } from "./types";
+import {
+  Priority,
+  RoadmapColumn as RoadmapColumnType,
+  Status,
+  Task,
+} from "./types";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -28,9 +33,9 @@ type ColumnRow = Database["public"]["Tables"]["roadmap_columns"]["Row"];
 const mapTaskFromDB = (task: TaskRow): Task => ({
   id: task.id,
   title: task.title,
-  description: task.description,
-  status: task.status,
-  priority: task.priority,
+  description: task.description ?? "",
+  status: task.status as Status,
+  priority: task.priority as Priority,
   dueDate: task.due_date ? new Date(task.due_date) : null,
   userId: task.user_id,
   createdAt: new Date(task.created_at),
@@ -44,14 +49,14 @@ const mapTaskToDB = (
   description: task.description,
   status: task.status,
   priority: task.priority,
-  due_date: task.dueDate?.toISOString() || null,
+  due_date: task.dueDate ? task.dueDate.toISOString() : null,
   user_id: task.userId,
 });
 
 const mapColumnFromDB = (column: ColumnRow): RoadmapColumnType => ({
   id: column.id,
   title: column.title,
-  status: column.status,
+  status: column.status as Status,
   position: column.position,
   userId: column.user_id,
   createdAt: new Date(column.created_at),
@@ -236,47 +241,37 @@ export function Roadmap() {
     }
   };
 
-  const addNewTask = async (status: Task["status"]) => {
+  const addTask = async (status: Status): Promise<Task | null> => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
-        return;
+        return null;
       }
 
-      const newTask = {
-        title: "Nova tarefa",
-        description: "",
-        status,
-        priority: "medium" as const,
-        dueDate: null,
-        userId: user.id,
-      };
-
-      const { data, error } = await supabase
+      const { data: task, error } = await supabase
         .from("tasks")
-        .insert(mapTaskToDB(newTask))
+        .insert([
+          {
+            title: "Nova tarefa",
+            description: "",
+            status,
+            priority: "medium",
+            user_id: user.id,
+          },
+        ])
         .select()
         .single();
 
-      if (error) {
-        console.error("Erro ao criar tarefa:", error);
-        toast.error("Erro ao criar tarefa");
-        return;
-      }
+      if (error) throw error;
 
-      if (!data) {
-        toast.error("Erro ao criar tarefa");
-        return;
-      }
-
-      setTasks((tasks) => [...tasks, mapTaskFromDB(data)]);
-      toast.success("Tarefa criada com sucesso");
+      return mapTaskFromDB(task);
     } catch (error) {
-      console.error("Erro ao criar tarefa:", error);
-      toast.error("Erro ao criar tarefa");
+      console.error("Erro ao adicionar tarefa:", error);
+      toast.error("Erro ao adicionar tarefa");
+      return null;
     }
   };
 
@@ -323,6 +318,28 @@ export function Roadmap() {
       console.error("Erro ao criar coluna:", error);
       toast.error("Erro ao criar coluna");
     }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    try {
+      const { error } = await supabase
+        .from("roadmap_columns")
+        .delete()
+        .eq("id", columnId);
+
+      if (error) throw error;
+
+      setColumns((prev) => prev.filter((col) => col.id !== columnId));
+      toast.success("Coluna excluída com sucesso!");
+    } catch (error) {
+      console.error("Erro ao excluir coluna:", error);
+      toast.error("Erro ao excluir coluna");
+    }
+  };
+
+  const handleTaskClick = (task: Task) => {
+    // Implementar lógica de clique na task
+    console.log("Task clicked:", task);
   };
 
   if (isLoading) {
@@ -377,9 +394,16 @@ export function Roadmap() {
                 key={column.id}
                 column={column}
                 tasks={tasks.filter((task) => task.status === column.status)}
-                onAddTask={() => addNewTask(column.status)}
+                onAddTask={async () => {
+                  const newTask = await addTask(column.status);
+                  if (newTask) {
+                    setTasks((prev) => [...prev, newTask]);
+                  }
+                }}
                 onUpdateTask={handleUpdateTask}
                 onUpdateColumn={handleUpdateColumn}
+                onDeleteColumn={handleDeleteColumn}
+                onTaskClick={handleTaskClick}
               />
             </SortableContext>
           ))}

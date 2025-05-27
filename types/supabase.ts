@@ -9,6 +9,104 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      companies: {
+        Row: {
+          id: string
+          user_id: string
+          razao_social: string
+          nome_fantasia: string
+          cnpj: string
+          inscricao_estadual: string | null
+          is_optante: boolean
+          inscricao_municipal: string | null
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          razao_social: string
+          nome_fantasia: string
+          cnpj: string
+          inscricao_estadual?: string | null
+          is_optante?: boolean
+          inscricao_municipal?: string | null
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          razao_social?: string
+          nome_fantasia?: string
+          cnpj?: string
+          inscricao_estadual?: string | null
+          is_optante?: boolean
+          inscricao_municipal?: string | null
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'companies_user_id_fkey'
+            columns: ['user_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      integrations: {
+        Row: {
+          id: string
+          company_id: string
+          platform: string
+          name: string
+          status: string
+          access_token: string | null
+          refresh_token: string | null
+          expires_at: string | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          platform: string
+          name: string
+          status: string
+          access_token?: string | null
+          refresh_token?: string | null
+          expires_at?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          platform?: string
+          name?: string
+          status?: string
+          access_token?: string | null
+          refresh_token?: string | null
+          expires_at?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'integrations_company_id_fkey'
+            columns: ['company_id']
+            referencedRelation: 'companies'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       tasks: {
         Row: {
           id: string

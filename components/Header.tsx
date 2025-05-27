@@ -8,19 +8,38 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         <Link
           href="/"
-          className="text-2xl font-bold hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 text-2xl font-bold hover:opacity-80 transition-opacity"
         >
-          ConectizeApp
+          <span className="text-primary">Conectize</span>
+          <span className="text-muted-foreground">App</span>
         </Link>
-        <nav className="flex items-center gap-4">
-          <ThemeToggle />
-          <Link href="/signin">
-            <Button variant="ghost">Entrar</Button>
+
+        <nav className="hidden md:flex items-center gap-6">
+          <Link
+            href="#ferramentas"
+            className="text-sm font-medium hover:text-primary transition-colors"
+          >
+            Ferramentas
           </Link>
-          <Link href="/signup">
-            <Button>Cadastrar</Button>
+          <Link
+            href="#precos"
+            className="text-sm font-medium hover:text-primary transition-colors"
+          >
+            Preços
           </Link>
         </nav>
+
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <Link href="/login">
+            <Button variant="ghost" className="hidden md:block">
+              Conectar
+            </Button>
+          </Link>
+          <Link href="/signup">
+            <Button className="hidden md:block">Cadastrar</Button>
+          </Link>
+        </div>
       </div>
     </header>
   );

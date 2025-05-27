@@ -1,6 +1,7 @@
 "use client";
 
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -15,7 +16,8 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const mainLinks = [
   {
@@ -65,6 +67,29 @@ const configLinks = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleSignOut = async () => {
+    try {
+      // Faz o logout
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Limpa os cookies manualmente
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // Força um refresh da página
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+      toast.error("Erro ao fazer logout");
+    }
+  };
 
   return (
     <aside className="fixed left-0 top-14 z-30 h-[calc(100vh-3.5rem)] w-56 border-r bg-background shadow-sm overflow-y-auto">
@@ -146,13 +171,13 @@ export function Sidebar() {
               <HelpCircle className="mr-2 h-4 w-4 text-muted-foreground" />
               Ajuda
             </Link>
-            <Link
-              href="/auth/signout"
-              className="flex items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            <button
+              onClick={handleSignOut}
+              className="flex items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full"
             >
               <LogOut className="mr-2 h-4 w-4 text-muted-foreground" />
               Sair
-            </Link>
+            </button>
           </nav>
         </div>
       </div>

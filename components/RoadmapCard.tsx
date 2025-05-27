@@ -95,7 +95,7 @@ export function RoadmapCard({
       const updatedTask: Task = {
         ...task,
         title: values.title,
-        description: values.description,
+        description: values.description ?? "",
         priority: values.priority,
         dueDate: values.dueDate ? new Date(values.dueDate) : null,
         updatedAt: new Date(),

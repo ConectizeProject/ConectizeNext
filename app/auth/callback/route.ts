@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   // Se houver erro, redireciona para a página de login com a mensagem de erro
   if (error || error_description) {
-    const errorUrl = new URL("/signin", requestUrl.origin);
+    const errorUrl = new URL("/login", requestUrl.origin);
     errorUrl.searchParams.set(
       "error",
       error_description || error || "Erro na autenticação"
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      const errorUrl = new URL("/signin", requestUrl.origin);
+      const errorUrl = new URL("/login", requestUrl.origin);
       errorUrl.searchParams.set("error", exchangeError.message);
       return NextResponse.redirect(errorUrl);
     }
@@ -73,12 +73,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Se não temos sessão, algo deu errado
-    const errorUrl = new URL("/signin", requestUrl.origin);
+    const errorUrl = new URL("/login", requestUrl.origin);
     errorUrl.searchParams.set("error", "Não foi possível iniciar a sessão");
     return NextResponse.redirect(errorUrl);
   } catch (error) {
     // Em caso de erro inesperado
-    const errorUrl = new URL("/signin", requestUrl.origin);
+    const errorUrl = new URL("/login", requestUrl.origin);
     errorUrl.searchParams.set(
       "error",
       "Ocorreu um erro durante a autenticação"

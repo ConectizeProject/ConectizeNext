@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@/components/theme-provider";
+import { createClient } from "@/lib/supabase/server";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -11,11 +12,17 @@ export const metadata = {
     "Administre pedidos, estoque, flex, full e relatórios comerciais de forma integrada.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={inter.className}>

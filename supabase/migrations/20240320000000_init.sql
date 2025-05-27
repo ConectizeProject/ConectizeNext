@@ -161,3 +161,110 @@ create policy "Can only view own subs data." on subscriptions for select using (
  */
 drop publication if exists supabase_realtime;
 create publication supabase_realtime for table products, prices;
+
+
+
+/**
+ * COMPANIES
+ * Note: This table contains company data. Users should only be able to view and update their own companies.
+ */
+create table companies (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  razao_social text not null,
+  nome_fantasia text not null,
+  cnpj text not null,
+  inscricao_estadual text,
+  is_optante boolean default true,
+  inscricao_municipal text,
+  enabled boolean default true,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+alter table companies enable row level security;
+create policy "Users can view their own companies"
+  on companies for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own companies"
+  on companies for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own companies"
+  on companies for update
+  using (auth.uid() = user_id);
+
+create trigger update_companies_updated_at
+  before update on companies
+  for each row execute procedure update_updated_at_column();
+
+create index companies_user_id_idx on companies(user_id); 
+
+
+/**
+ * INTEGRATIONS
+ * Note: This table contains integration data. Users should only be able to view and update their own integrations.
+ */
+CREATE TABLE IF NOT EXISTS integrations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  platform TEXT NOT NULL,
+  company_id UUID REFERENCES companies(id),
+  status TEXT NOT NULL DEFAULT 'desconectado',
+  token TEXT,
+  refresh_token TEXT,
+  expires_in INTEGER,
+  request JSONB
+); 
+CREATE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = timezone('utc'::text, now());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_updated_at
+    BEFORE UPDATE ON public.integrations
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at(); 
+    CREATE POLICY "Users can view own company integrations"
+    ON public.integrations
+    FOR SELECT
+    USING (
+        company_id IN (
+            SELECT id FROM public.companies
+            WHERE user_id = auth.uid()
+        ) OR company_id IS NULL
+    );
+
+CREATE POLICY "Users can insert own company integrations"
+    ON public.integrations
+    FOR INSERT
+    WITH CHECK (
+        company_id IN (
+            SELECT id FROM public.companies
+            WHERE user_id = auth.uid()
+        ) OR company_id IS NULL
+    );
+
+CREATE POLICY "Users can update own company integrations"
+    ON public.integrations
+    FOR UPDATE
+    USING (
+        company_id IN (
+            SELECT id FROM public.companies
+            WHERE user_id = auth.uid()
+        ) OR company_id IS NULL
+    );
+
+CREATE POLICY "Users can delete own company integrations"
+    ON public.integrations
+    FOR DELETE
+    USING (
+        company_id IN (
+            SELECT id FROM public.companies
+            WHERE user_id = auth.uid()
+        ) OR company_id IS NULL
+    ); 

@@ -9,11 +9,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
+import { Database } from "@/types/supabase";
 import { getAuthorizationUrl } from "@/utils/integrations/mercadolivre";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FaAmazon, FaMoneyBillWave, FaStore } from "react-icons/fa";
+import {
+  FaAmazon,
+  FaEdit,
+  FaMoneyBillWave,
+  FaPlus,
+  FaToggleOff,
+  FaToggleOn,
+} from "react-icons/fa";
 import { SiShopee } from "react-icons/si";
+import { toast } from "sonner";
+
+type Company = Database["public"]["Tables"]["companies"]["Row"] & {
+  integrations: Database["public"]["Tables"]["integrations"]["Row"][];
+};
+
+type Integration = Database["public"]["Tables"]["integrations"]["Row"];
 
 // Definição da interface para as propriedades do card de integração
 interface IntegrationCardProps {
@@ -77,11 +93,13 @@ function ConfirmationModal({
   onClose,
   title,
   onConfirm,
+  companyId,
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  onConfirm: () => void;
+  onConfirm: (companyId: string) => void;
+  companyId: string;
 }) {
   if (!isOpen) return null;
 
@@ -97,7 +115,7 @@ function ConfirmationModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={onConfirm}>Continuar</Button>
+          <Button onClick={() => onConfirm(companyId)}>Continuar</Button>
         </div>
       </div>
     </div>
@@ -195,352 +213,437 @@ function Notification({
   );
 }
 
-// Definição da interface para os dados de integração
-interface Integration {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  status: "conectado" | "desconectado";
-}
-
 export default function Integracoes() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
-  // Estado para armazenar as integrações
-  const [integrations, setIntegrations] = useState<Integration[]>([
+  const availableIntegrations = [
     {
-      id: "mercado-livre",
+      id: "mercadolivre",
       title: "Mercado Livre",
-      description:
-        "Conecte sua conta do Mercado Livre para gerenciar vendas, estoque e pedidos.",
-      icon: <FaStore className="text-yellow-500" />,
-      status: "desconectado",
-    },
-    {
-      id: "mercado-pago",
-      title: "MercadoPago",
-      description:
-        "Integre o MercadoPago para processar pagamentos e gerenciar transações.",
-      icon: <FaMoneyBillWave className="text-blue-500" />,
-      status: "desconectado",
+      description: "Integre seu catálogo e gerencie pedidos do Mercado Livre",
+      icon: <FaMoneyBillWave />,
     },
     {
       id: "shopee",
       title: "Shopee",
-      description:
-        "Sincronize seus produtos e pedidos da Shopee com a plataforma.",
-      icon: <SiShopee className="text-orange-500" />,
-      status: "desconectado",
+      description: "Integre seu catálogo e gerencie pedidos da Shopee",
+      icon: <SiShopee />,
     },
     {
       id: "amazon",
       title: "Amazon",
-      description:
-        "Gerencie seu catálogo e pedidos da Amazon diretamente na plataforma.",
-      icon: <FaAmazon className="text-orange-600" />,
-      status: "desconectado",
+      description: "Integre seu catálogo e gerencie pedidos da Amazon",
+      icon: <FaAmazon />,
     },
-  ]);
+  ];
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedIntegration, setSelectedIntegration] =
-    useState<Integration | null>(null);
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    message: string;
-    type: "success" | "error";
-  }>({
-    show: false,
-    message: "",
-    type: "success",
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
 
-  // Verificar se há um código na URL (retorno do OAuth)
   useEffect(() => {
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
+    const error = searchParams.get("error");
 
-    if (code && state === "$12345") {
-      handleMercadoLivreCallback(code);
+    if (error) {
+      toast.error(error);
+      router.replace("/integracoes");
+    } else if (code) {
+      // O token será processado pelo endpoint da API
+      // Redirecionar para a página de integrações sem o código
+      router.replace("/integracoes");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
-  // Função para lidar com o retorno do OAuth do Mercado Livre
-  const handleMercadoLivreCallback = async (code: string) => {
+  const fetchCompanies = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-      console.log(`Código de autorização recebido: ${code}`);
-
-      // Enviar o código para a API para obter o token
-      const response = await fetch("/api/integrations/mercadolivre", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao processar a integração");
-      }
-
-      // Atualizando o status da integração
-      setIntegrations((prev) =>
-        prev.map((integration) =>
-          integration.id === "mercado-livre"
-            ? { ...integration, status: "conectado" }
-            : integration
+      const { data: companiesData, error } = await supabase
+        .from("companies")
+        .select(
+          `
+          *,
+          integrations (*)
+        `
         )
-      );
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      // Mostrando notificação de sucesso
-      showNotification(
-        data.message || "Integração com Mercado Livre realizada com sucesso!"
-      );
+      if (error) throw error;
 
-      // Removendo o código da URL para não processar novamente em caso de refresh
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
+      setCompanies(companiesData || []);
     } catch (error) {
-      console.error("Erro ao processar código de autorização:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao conectar com Mercado Livre"
-      );
-      showNotification(
-        "Erro ao conectar com Mercado Livre. Tente novamente.",
-        "error"
-      );
+      console.error("Erro ao buscar empresas:", error);
+      toast.error("Erro ao carregar empresas");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Função para abrir o modal de confirmação
-  const handleConnect = (integration: Integration) => {
-    setSelectedIntegration(integration);
-    setModalOpen(true);
+  const handleNewCompany = () => {
+    router.push("/empresas/novo");
   };
 
-  // Função para fechar o modal
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setSelectedIntegration(null);
+  const handleEditCompany = (companyId: string) => {
+    router.push(`/empresas/${companyId}`);
   };
 
-  // Função para mostrar notificação
-  const showNotification = (
-    message: string,
-    type: "success" | "error" = "success"
+  const handleToggleCompany = async (
+    companyId: string,
+    currentStatus: boolean
   ) => {
-    setNotification({
-      show: true,
-      message,
-      type,
-    });
-  };
-
-  // Função para fechar notificação
-  const closeNotification = () => {
-    setNotification((prev) => ({ ...prev, show: false }));
-  };
-
-  // Função para confirmar a conexão
-  const handleConfirmConnect = async () => {
-    if (!selectedIntegration) return;
-
-    // Fechar o modal
-    handleCloseModal();
-
     try {
-      // Direcionar para a URL de autorização apropriada com base na integração
-      if (selectedIntegration.id === "mercado-livre") {
-        // Limpar qualquer erro anterior
-        setError(null);
+      const { error } = await supabase
+        .from("companies")
+        .update({ enabled: !currentStatus })
+        .eq("id", companyId);
 
-        // Obter URL de autorização do Mercado Livre
-        const authUrl = getAuthorizationUrl();
+      if (error) throw error;
 
-        console.log(
-          "Redirecionando para URL de autorização do Mercado Livre:",
-          authUrl
-        );
-
-        // Mostrar o estado de carregamento brevemente
-        setIsLoading(true);
-
-        // Se o redirecionamento não ocorrer em 3 segundos, mostramos uma mensagem com link
-        const redirectTimeout = setTimeout(() => {
-          setIsLoading(false);
-          setError(
-            `Se você não foi redirecionado automaticamente, <a href="${authUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium">clique aqui para acessar a página de autorização do Mercado Livre</a>`
-          );
-        }, 3000);
-
-        // Tentar redirecionar
-        try {
-          // Forçar redirecionamento usando window.location.assign para a URL de auth
-          window.location.assign(authUrl);
-
-          // Como medida adicional de segurança, também definimos o href
-          window.location.href = authUrl;
-        } catch (redirectError) {
-          // Se houver erro no redirecionamento, mostrar mensagem imediatamente
-          clearTimeout(redirectTimeout);
-          setIsLoading(false);
-          setError(
-            `Não foi possível redirecionar automaticamente. <a href="${authUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium">Clique aqui para acessar a página de autorização do Mercado Livre</a>`
-          );
-          console.error("Erro no redirecionamento:", redirectError);
-        }
-      } else {
-        // Para outras integrações, simulamos a conexão (por enquanto)
-        setTimeout(() => {
-          setIntegrations((prevIntegrations) =>
-            prevIntegrations.map((integration) =>
-              integration.id === selectedIntegration.id
-                ? { ...integration, status: "conectado" }
-                : integration
-            )
-          );
-
-          showNotification(
-            `Integração com ${selectedIntegration.title} realizada com sucesso!`
-          );
-        }, 1000);
-      }
+      toast.success(
+        `Empresa ${currentStatus ? "desativada" : "ativada"} com sucesso`
+      );
+      fetchCompanies();
     } catch (error) {
-      console.error(
-        `Erro ao conectar com ${selectedIntegration.title}:`,
-        error
-      );
-      setIsLoading(false);
-      showNotification(
-        `Erro ao conectar com ${selectedIntegration.title}. Tente novamente.`,
-        "error"
-      );
+      console.error("Erro ao alterar status da empresa:", error);
+      toast.error("Erro ao alterar status da empresa");
     }
   };
 
-  // Função para gerenciar uma integração conectada
-  const handleManage = (integration: Integration) => {
-    console.log(`Gerenciando ${integration.title}...`);
-    // Aqui você poderia abrir um modal com opções de gerenciamento ou redirecionar para uma página
+  const handleConnect = async (companyId: string, platform: string) => {
+    try {
+      if (platform === "mercadolivre") {
+        // Redirecionar para a página de autorização do Mercado Livre
+        const authUrl = await getAuthorizationUrl(companyId);
+        window.location.href = authUrl;
+      } else {
+        toast.error("Plataforma não suportada");
+      }
+    } catch (error) {
+      console.error("Erro ao iniciar conexão:", error);
+      toast.error("Erro ao iniciar conexão");
+    }
   };
 
+  const handleManage = (companyId: string, integrationId: string) => {
+    router.push(`/integracoes/${integrationId}`);
+  };
+
+  const activeCompanies = companies.filter((company) => company.enabled);
+  const inactiveCompanies = companies.filter((company) => !company.enabled);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Integrações</h1>
-        <Button variant="outline">Atualizar</Button>
+        <Button onClick={handleNewCompany}>
+          <FaPlus className="mr-2" />
+          Nova Empresa
+        </Button>
       </div>
 
-      {isLoading && (
-        <div className="rounded-lg border p-4 bg-blue-50">
-          <div className="flex items-center space-x-3">
-            <svg
-              className="animate-spin h-5 w-5 text-blue-500"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <p className="text-blue-600">
-              Preparando redirecionamento para autorização...
-            </p>
+      {companies.length === 0 ? (
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-semibold mb-4">
+            Nenhuma empresa cadastrada
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Para começar a usar as integrações, você precisa cadastrar uma
+            empresa.
+          </p>
+          <Button onClick={handleNewCompany}>
+            <FaPlus className="mr-2" />
+            Cadastrar Empresa
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Empresas Ativas */}
+          <div className="space-y-8">
+            {activeCompanies.map((company) => (
+              <div key={company.id} className="bg-white rounded-lg shadow p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-xl font-semibold">
+                      {company.nome_fantasia}
+                    </h2>
+                    <p className="text-gray-600">{company.razao_social}</p>
+                    <p className="text-sm text-gray-500">
+                      CNPJ: {company.cnpj}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditCompany(company.id)}
+                    >
+                      <FaEdit className="mr-2" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleToggleCompany(company.id, company.enabled)
+                      }
+                    >
+                      <FaToggleOn className="mr-2" />
+                      Desativar
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableIntegrations.map((integration) => {
+                    const existingIntegration = company.integrations?.find(
+                      (i) => i.platform === integration.id
+                    );
+
+                    return (
+                      <Card key={integration.id} className="w-full">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
+                              {integration.icon}
+                            </div>
+                            <CardTitle className="text-xl">
+                              {integration.title}
+                            </CardTitle>
+                          </div>
+                          <div
+                            className={`px-2 py-1 text-xs rounded-full ${
+                              existingIntegration?.status === "conectado"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {existingIntegration?.status === "conectado"
+                              ? "Conectado"
+                              : "Desconectado"}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <CardDescription className="text-sm text-gray-500">
+                            {integration.description}
+                          </CardDescription>
+                        </CardContent>
+                        <CardFooter>
+                          <Button
+                            variant={
+                              existingIntegration ? "outline" : "default"
+                            }
+                            className="w-full"
+                            onClick={() =>
+                              existingIntegration
+                                ? handleManage(
+                                    company.id,
+                                    existingIntegration.id
+                                  )
+                                : handleConnect(company.id, integration.id)
+                            }
+                          >
+                            {existingIntegration ? "Gerenciar" : "Conectar"}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Botão para mostrar empresas inativas */}
+          {inactiveCompanies.length > 0 && (
+            <div className="mt-8 text-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowInactive(!showInactive)}
+              >
+                {showInactive
+                  ? "Ocultar Empresas Inativas"
+                  : "Mostrar Empresas Inativas"}
+              </Button>
+            </div>
+          )}
+
+          {/* Empresas Inativas */}
+          {showInactive && inactiveCompanies.length > 0 && (
+            <div className="mt-8 space-y-8">
+              <h3 className="text-xl font-semibold text-gray-500">
+                Empresas Inativas
+              </h3>
+              {inactiveCompanies.map((company) => (
+                <div
+                  key={company.id}
+                  className="bg-gray-50 rounded-lg shadow p-6"
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-600">
+                        {company.nome_fantasia}
+                      </h2>
+                      <p className="text-gray-500">{company.razao_social}</p>
+                      <p className="text-sm text-gray-400">
+                        CNPJ: {company.cnpj}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditCompany(company.id)}
+                      >
+                        <FaEdit className="mr-2" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleToggleCompany(company.id, company.enabled)
+                        }
+                      >
+                        <FaToggleOff className="mr-2" />
+                        Ativar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {availableIntegrations.map((integration) => {
+                      const existingIntegration = company.integrations?.find(
+                        (i) => i.platform === integration.id
+                      );
+
+                      return (
+                        <Card
+                          key={integration.id}
+                          className="w-full bg-gray-50"
+                        >
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-2xl text-gray-500">
+                                {integration.icon}
+                              </div>
+                              <CardTitle className="text-xl text-gray-600">
+                                {integration.title}
+                              </CardTitle>
+                            </div>
+                            <div
+                              className={`px-2 py-1 text-xs rounded-full ${
+                                existingIntegration?.status === "conectado"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-200 text-gray-600"
+                              }`}
+                            >
+                              {existingIntegration?.status === "conectado"
+                                ? "Conectado"
+                                : "Desconectado"}
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <CardDescription className="text-sm text-gray-500">
+                              {integration.description}
+                            </CardDescription>
+                          </CardContent>
+                          <CardFooter>
+                            <Button
+                              variant={
+                                existingIntegration ? "outline" : "default"
+                              }
+                              className="w-full"
+                              disabled={!company.enabled}
+                              onClick={() =>
+                                existingIntegration
+                                  ? handleManage(
+                                      company.id,
+                                      existingIntegration.id
+                                    )
+                                  : handleConnect(company.id, integration.id)
+                              }
+                            >
+                              {existingIntegration ? "Gerenciar" : "Conectar"}
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Integrações sem vínculo com empresa */}
+      <div className="mt-12">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">
+                Integrações Independentes
+              </h2>
+              <p className="text-gray-600">
+                Conecte suas integrações sem vincular a uma empresa
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableIntegrations.map((integration) => (
+              <Card key={integration.id} className="w-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
+                      {integration.icon}
+                    </div>
+                    <CardTitle className="text-xl">
+                      {integration.title}
+                    </CardTitle>
+                  </div>
+                  <div className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                    Desconectado
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm text-gray-500">
+                    {integration.description}
+                  </CardDescription>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => handleConnect("independent", integration.id)}
+                  >
+                    Conectar
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         </div>
-      )}
-
-      {error && !isLoading && (
-        <div className="rounded-lg border border-red-300 p-4 bg-red-50">
-          <div className="flex items-center space-x-3">
-            <svg
-              className="h-5 w-5 text-red-500 flex-shrink-0"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div
-              className="text-red-700"
-              dangerouslySetInnerHTML={{ __html: error }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6">
-        <h2 className="text-lg font-medium text-yellow-800 mb-2">
-          Processo de Autorização
-        </h2>
-        <p className="text-sm text-yellow-700 mb-2">
-          Para conectar com o Mercado Livre, você será redirecionado para a
-          página de autorização oficial. Após conceder permissão, você retornará
-          automaticamente para esta página com sua integração ativada.
-        </p>
-        <p className="text-sm text-yellow-700">
-          Certifique-se de estar logado na sua conta do Mercado Livre antes de
-          iniciar a integração.
-        </p>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {integrations.map((integration) => (
-          <IntegrationCard
-            key={integration.id}
-            title={integration.title}
-            description={integration.description}
-            icon={integration.icon}
-            status={integration.status}
-            onConnect={() => handleConnect(integration)}
-            onManage={() => handleManage(integration)}
-          />
-        ))}
-      </div>
-
-      {selectedIntegration && (
-        <ConfirmationModal
-          isOpen={modalOpen}
-          onClose={handleCloseModal}
-          title={selectedIntegration.title}
-          onConfirm={handleConfirmConnect}
-        />
-      )}
-
-      {notification.show && (
-        <Notification
-          message={notification.message}
-          type={notification.type}
-          onClose={closeNotification}
-        />
-      )}
     </div>
   );
 }

@@ -134,11 +134,11 @@ export default function Backlog() {
             tasksData.map((task) => ({
               id: task.id,
               title: task.title,
-              description: task.description,
+              description: task.description ?? "",
               status: task.status as Status,
               priority: task.priority,
               dueDate: task.due_date ? new Date(task.due_date) : null,
-              userId: task.user_id,
+              userId: task.user_id ?? "",
               createdAt: new Date(task.created_at),
               updatedAt: new Date(task.updated_at),
             }))
@@ -228,7 +228,7 @@ export default function Backlog() {
     setSelectedTask(task);
     setTaskForm({
       title: task.title,
-      description: task.description || "",
+      description: task.description ?? "",
       userId: task.userId,
     });
     setIsTaskDialogOpen(true);
@@ -242,7 +242,7 @@ export default function Backlog() {
         .from("tasks")
         .update({
           title: taskForm.title,
-          description: taskForm.description || null,
+          description: taskForm.description ?? "",
           user_id: taskForm.userId,
           updated_at: new Date().toISOString(),
         })
@@ -260,8 +260,8 @@ export default function Backlog() {
             ? {
                 ...task,
                 title: taskForm.title,
-                description: taskForm.description || null,
-                userId: taskForm.userId,
+                description: taskForm.description ?? "",
+                userId: taskForm.userId ?? "",
                 updatedAt: new Date(),
               }
             : task
@@ -310,11 +310,11 @@ export default function Backlog() {
       const task: Task = {
         id: data.id,
         title: data.title,
-        description: data.description,
+        description: data.description ?? "",
         status: data.status as Status,
         priority: data.priority,
         dueDate: data.due_date ? new Date(data.due_date) : null,
-        userId: data.user_id,
+        userId: data.user_id ?? "",
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
       };
@@ -394,7 +394,7 @@ export default function Backlog() {
       const column: RoadmapColumn = {
         id: data.id,
         title: data.title,
-        status: data.status,
+        status: data.status as Status,
         position: data.position,
         userId: data.user_id,
         createdAt: new Date(data.created_at),
