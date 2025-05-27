@@ -1,6 +1,4 @@
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
+import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function PUT(
@@ -8,28 +6,35 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
     const body = await request.json()
-    const { razaoSocial, nomeFantasia, cnpj, inscricaoEstadual, isOptante, inscricaoMunicipal } = body
+    const { razao_social, nome_fantasia, cnpj, inscricao_estadual, is_optante, inscricao_municipal } = body
 
-    const company = await prisma.company.update({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
-      data: {
-        razaoSocial,
-        nomeFantasia,
+    const { data: company, error } = await supabase
+      .from('companies')
+      .update({
+        razao_social,
+        nome_fantasia,
         cnpj,
-        inscricaoEstadual,
-        isOptante,
-        inscricaoMunicipal,
-      },
-    })
+        inscricao_estadual,
+        is_optante,
+        inscricao_municipal,
+      })
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating company:', error)
+      return new NextResponse('Internal Server Error', { status: 500 })
+    }
 
     return NextResponse.json(company)
   } catch (error) {
@@ -43,20 +48,25 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const company = await prisma.company.update({
-      where: {
-        id: params.id,
-        userId: session.user.id,
-      },
-      data: {
-        enabled: false,
-      },
-    })
+    const { data: company, error } = await supabase
+      .from('companies')
+      .update({ enabled: false })
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error disabling company:', error)
+      return new NextResponse('Internal Server Error', { status: 500 })
+    }
 
     return NextResponse.json(company)
   } catch (error) {
