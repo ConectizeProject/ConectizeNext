@@ -54,7 +54,7 @@ export default function TermosPage() {
             Os planos disponíveis incluem:
           </p>
           <ul className="list-disc pl-6 mt-4 space-y-2 text-muted-foreground">
-            <li>Plano Básico: R$ 60/mês</li>
+            <li>Plano Básico: R$ 70/mês</li>
             <li>Plano Intermediário: R$ 150/mês</li>
             <li>Plano Premium: R$ 250/mês</li>
             <li>Plano Avançado: R$ 400/mês</li>
