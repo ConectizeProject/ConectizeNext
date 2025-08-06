@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      companies: {
+        Row: {
+          cnpj: string
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          is_optante: boolean | null
+          nome_fantasia: string
+          razao_social: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cnpj: string
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          is_optante?: boolean | null
+          nome_fantasia: string
+          razao_social: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cnpj?: string
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          is_optante?: boolean | null
+          nome_fantasia?: string
+          razao_social?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
@@ -21,6 +63,83 @@ export type Database = {
         Update: {
           id?: string
           stripe_customer_id?: string | null
+        }
+        Relationships: []
+      }
+      integrations: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          expires_in: number | null
+          id: string
+          platform: string
+          refresh_token: string | null
+          request: Json | null
+          status: string
+          token: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          expires_in?: number | null
+          id?: string
+          platform: string
+          refresh_token?: string | null
+          request?: Json | null
+          status?: string
+          token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          expires_in?: number | null
+          id?: string
+          platform?: string
+          refresh_token?: string | null
+          request?: Json | null
+          status?: string
+          token?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: string
+          message: string
+          origin: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          message: string
+          origin: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          message?: string
+          origin?: string
+          type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

@@ -1,3 +1,4 @@
+import type { Database, Tables, TablesInsert } from '@/types_db';
 import { toDateTime } from '@/utils/helpers';
 import { stripe } from '@/utils/stripe/config';
 import { createClient } from '@supabase/supabase-js';
@@ -246,12 +247,10 @@ const manageSubscriptionStatusChange = async (
     canceled_at: subscription.canceled_at
       ? toDateTime(subscription.canceled_at).toISOString()
       : null,
-    current_period_start: toDateTime(
-      subscription.current_period_start
-    ).toISOString(),
-    current_period_end: toDateTime(
-      subscription.current_period_end
-    ).toISOString(),
+      // @ts-ignore
+    current_period_start: toDateTime(subscription.current_period_start).toISOString(),
+    // @ts-ignore
+    current_period_end: toDateTime(subscription.current_period_end).toISOString(),
     created: toDateTime(subscription.created).toISOString(),
     ended_at: subscription.ended_at
       ? toDateTime(subscription.ended_at).toISOString()
